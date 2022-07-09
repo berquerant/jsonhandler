@@ -15,11 +15,12 @@ func _() {
 	_ = x[EmarshalResponse-4]
 	_ = x[EwriteResponseBody-5]
 	_ = x[EhandlerError-6]
+	_ = x[EtooLargeRequestBody-7]
 }
 
-const _ErrorKind_name = "EunknownEnotJSONRequestEreadRequestBodyEunmarshalRequestBodyEmarshalResponseEwriteResponseBodyEhandlerError"
+const _ErrorKind_name = "EunknownEnotJSONRequestEreadRequestBodyEunmarshalRequestBodyEmarshalResponseEwriteResponseBodyEhandlerErrorEtooLargeRequestBody"
 
-var _ErrorKind_index = [...]uint8{0, 8, 23, 39, 60, 76, 94, 107}
+var _ErrorKind_index = [...]uint8{0, 8, 23, 39, 60, 76, 94, 107, 127}
 
 func (i ErrorKind) String() string {
 	if i < 0 || i >= ErrorKind(len(_ErrorKind_index)-1) {

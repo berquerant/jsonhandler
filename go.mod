@@ -3,6 +3,7 @@ module github.com/berquerant/jsonhandler
 go 1.18
 
 require (
+	github.com/berquerant/goconfig v0.0.0-20220506131820-006af87a1c61 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

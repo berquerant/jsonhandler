@@ -16,14 +16,17 @@ import (
 )
 
 type funcTestcase[T, U any] struct {
-	title    string
-	handler  jsonhandler.Handler[T, U]
-	header   map[string]string
-	body     string
-	request  T
-	response U
-	ok       bool
-	errKind  jsonhandler.ErrorKind
+	title               string
+	handler             jsonhandler.Handler[T, U]
+	header              map[string]string
+	body                string
+	request             T
+	response            U
+	responseStatus      int
+	responseContentType string
+	ok                  bool
+	errKind             jsonhandler.ErrorKind
+	opt                 []jsonhandler.Option
 }
 
 func newFuncTestcase[T, U any](
@@ -33,18 +36,24 @@ func newFuncTestcase[T, U any](
 	body string,
 	request T,
 	response U,
+	responseStatus int,
+	responseContentType string,
 	ok bool,
 	errKind jsonhandler.ErrorKind,
+	opt ...jsonhandler.Option,
 ) func(*testing.T) {
 	x := &funcTestcase[T, U]{
-		title:    title,
-		handler:  handler,
-		header:   header,
-		body:     body,
-		request:  request,
-		response: response,
-		ok:       ok,
-		errKind:  errKind,
+		title:               title,
+		handler:             handler,
+		header:              header,
+		body:                body,
+		request:             request,
+		response:            response,
+		responseStatus:      responseStatus,
+		responseContentType: responseContentType,
+		ok:                  ok,
+		errKind:             errKind,
+		opt:                 opt,
 	}
 	return func(t *testing.T) {
 		t.Run(x.title, x.test)
@@ -74,7 +83,7 @@ func (s *funcTestcase[T, U]) test(t *testing.T) {
 		return u, err
 	}
 
-	jsonhandler.Func(handler, onError)(rec, req)
+	jsonhandler.Func(handler, onError, s.opt...)(rec, req)
 
 	if !s.ok {
 		if !assert.NotNil(t, respErr, "response error is not nil") {
@@ -89,8 +98,8 @@ func (s *funcTestcase[T, U]) test(t *testing.T) {
 
 	resp := rec.Result()
 	defer resp.Body.Close()
-	assert.Equal(t, http.StatusOK, resp.StatusCode, "http status")
-	assert.Contains(t, resp.Header.Get("Content-Type"), "application/json", "content-type")
+	assert.Equal(t, s.responseStatus, resp.StatusCode, "http status")
+	assert.Equal(t, s.responseContentType, resp.Header.Get("Content-Type"), "response content-type")
 
 	var writtenResponse U
 	respBody, err := io.ReadAll(resp.Body)
@@ -123,6 +132,8 @@ func TestFunc(t *testing.T) {
 		requestTJSON        = `{"message":"hello"}`
 		responseTJSON       = `{"status":"ok"}`
 		invalidRequestTJSON = `not json`
+		normalContentType   = "application/json"
+		normalStatus        = http.StatusOK
 	)
 
 	var (
@@ -155,6 +166,8 @@ func TestFunc(t *testing.T) {
 			requestTJSON,
 			request,
 			response,
+			normalStatus,
+			normalContentType,
 			false,
 			jsonhandler.EnotJSONRequest,
 		),
@@ -165,6 +178,8 @@ func TestFunc(t *testing.T) {
 			invalidRequestTJSON,
 			request,
 			response,
+			normalStatus,
+			normalContentType,
 			false,
 			jsonhandler.EunmarshalRequestBody,
 		),
@@ -175,6 +190,8 @@ func TestFunc(t *testing.T) {
 			requestTJSON,
 			request,
 			func() {},
+			normalStatus,
+			normalContentType,
 			false,
 			jsonhandler.EmarshalResponse,
 		),
@@ -185,8 +202,49 @@ func TestFunc(t *testing.T) {
 			requestTJSON,
 			request,
 			response,
+			normalStatus,
+			normalContentType,
 			false,
 			jsonhandler.EhandlerError,
+		),
+		newTestcase(
+			"call handler with struct parameter and success status code successfully",
+			normalHandler,
+			normalHeader,
+			requestTJSON,
+			request,
+			response,
+			http.StatusCreated,
+			normalContentType,
+			true,
+			jsonhandler.Eunknown,
+			jsonhandler.WithSuccessStatusCode(http.StatusCreated),
+		),
+		newTestcase(
+			"call handler with struct parameter and response content charset successfully",
+			normalHandler,
+			normalHeader,
+			requestTJSON,
+			request,
+			response,
+			normalStatus,
+			"application/json; charset=utf-8",
+			true,
+			jsonhandler.Eunknown,
+			jsonhandler.WithResponseContentCharset("utf-8"),
+		),
+		newTestcase(
+			"reject too large request",
+			normalHandler,
+			normalHeader,
+			requestTJSON,
+			request,
+			response,
+			normalStatus,
+			normalContentType,
+			false,
+			jsonhandler.EtooLargeRequestBody,
+			jsonhandler.WithMaxRequestBodyBytes(1),
 		),
 		newTestcase(
 			"call handler with struct parameter successfully",
@@ -195,6 +253,8 @@ func TestFunc(t *testing.T) {
 			requestTJSON,
 			request,
 			response,
+			normalStatus,
+			normalContentType,
 			true,
 			jsonhandler.Eunknown,
 		),
@@ -205,6 +265,8 @@ func TestFunc(t *testing.T) {
 			requestTJSON,
 			&request,
 			&response,
+			normalStatus,
+			normalContentType,
 			true,
 			jsonhandler.Eunknown,
 		),
@@ -215,6 +277,8 @@ func TestFunc(t *testing.T) {
 			requestTJSON,
 			dictRequest,
 			dictResponse,
+			normalStatus,
+			normalContentType,
 			true,
 			jsonhandler.Eunknown,
 		),

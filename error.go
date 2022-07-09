@@ -23,6 +23,8 @@ const (
 	EwriteResponseBody
 	// EhandlerError indicates that the Handler returned an error.
 	EhandlerError
+	// EtooLargeRequestBody indicates that the request body is too large.
+	EtooLargeRequestBody
 )
 
 // IsHandlerError returns this is EhandlerError or not.
