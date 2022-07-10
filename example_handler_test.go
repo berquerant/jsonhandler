@@ -84,6 +84,6 @@ func onError(w http.ResponseWriter, r *http.Request, err *jsonhandler.Error) {
 
 func ExampleFunc() {
 	counter := new(intCounter)
-	http.HandleFunc("/c", jsonhandler.Func(counter.handler, onError))
+	http.HandleFunc("/c", jsonhandler.Func(counter.handler).Prepare(onError))
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

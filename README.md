@@ -33,7 +33,7 @@ func handler(_ context.Context, req *Request) (*Response, error) {
 }
 
 func main() {
-	http.HandleFunc("/", jsonhandler.Func(handler, nil))
+	http.HandleFunc("/", jsonhandler.Func(handler).Prepare(nil))
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 ```

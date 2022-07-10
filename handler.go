@@ -15,12 +15,23 @@ type (
 	ErrorHandler func(http.ResponseWriter, *http.Request, *Error)
 	// Handler responds to a request of type T.
 	Handler[T, U any] func(context.Context, T) (U, error)
+	// HandlerFunc responds to http request but suspends replying headers and data on error.
+	HandlerFunc func(http.ResponseWriter, *http.Request) *Error
 )
+
+// Prepare converts this into http.HandlerFunc.
+// Calls onError when an error occurred and onError is not nil.
+func (f HandlerFunc) Prepare(onError ErrorHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := f(w, r); err != nil && onError != nil {
+			onError(w, r, err)
+		}
+	}
+}
 
 // Func builds a http handler for JSON API.
 //
-// Func calls handler with the context of the request and the parsed request body,
-// also calls errorHandler when an error occurred and errorHandler is not nil.
+// Func calls handler with the context of the request and the parsed request body.
 //
 // Apply some options by pass Option to opt.
 // Option is built by WithXXX functions.
@@ -28,22 +39,14 @@ type (
 // WithSuccessStatusCode changes the response http status code, default is 200 OK.
 // WithMaxRequestBodyBytes limits the request body size, default is unlimited.
 // WithResponseContentCharset changes the response content type charset, default is unspecified.
-func Func[T, U any](handler Handler[T, U], errorHandler ErrorHandler, opt ...Option) http.HandlerFunc {
+func Func[T, U any](handler Handler[T, U], opt ...Option) HandlerFunc {
 	config := NewConfigBuilder().
 		SuccessStatusCode(http.StatusOK).
 		MaxRequestBodyBytes(-1).
 		ResponseContentCharset("").
 		Build()
 	config.Apply(opt...)
-
-	iHandler := newInternalHandlerFunc(handler, config)
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := iHandler(w, r); err != nil && errorHandler != nil {
-			errorHandler(w, r, err)
-			return
-		}
-	}
+	return newHandlerFunc(handler, config)
 }
 
 var (
@@ -54,9 +57,7 @@ func hasJSONHeader(header http.Header) bool {
 	return strings.Contains(header.Get("Content-Type"), "application/json")
 }
 
-type internalHandlerFunc func(http.ResponseWriter, *http.Request) *Error
-
-func newInternalHandlerFunc[T, U any](handler Handler[T, U], config *Config) internalHandlerFunc {
+func newHandlerFunc[T, U any](handler Handler[T, U], config *Config) HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) *Error {
 		if !hasJSONHeader(r.Header) {
 			return newError(errNotJSON, EnotJSONRequest)

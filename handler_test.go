@@ -83,7 +83,7 @@ func (s *funcTestcase[T, U]) test(t *testing.T) {
 		return u, err
 	}
 
-	jsonhandler.Func(handler, onError, s.opt...)(rec, req)
+	jsonhandler.Func(handler, s.opt...).Prepare(onError)(rec, req)
 
 	if !s.ok {
 		if !assert.NotNil(t, respErr, "response error is not nil") {
